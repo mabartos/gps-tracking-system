@@ -1,11 +1,3 @@
---/*
-DROP TABLE xbartos5.device_dimension CASCADE;
-DROP TABLE xbartos5.app_dimension CASCADE;
-DROP TABLE xbartos5.date_dimension CASCADE;
-DROP TABLE xbartos5.sim_dimension CASCADE; 
-DROP TABLE xbartos5.car_dimension CASCADE;
-DROP TABLE xbartos5.report_fact CASCADE;
---*/
 
 CREATE TABLE xbartos5.device_dimension(
     device_key BIGINT GENERATED ALWAYS AS IDENTITY,
@@ -41,7 +33,7 @@ CREATE TABLE xbartos5.sim_dimension(
 
 CREATE TABLE xbartos5.car_dimension(
     car_key BIGINT NOT NULL UNIQUE,
-    spz TEXT,
+    spz TEXT UNIQUE,
     make VARCHAR(50),
     color VARCHAR(50),
     tonnage NUMERIC(4,1),
@@ -92,9 +84,9 @@ INSERT INTO xbartos5.device_dimension(pda_imei, name, effective_date)(
 
 UPDATE xbartos5.device_dimension
 SET is_current=true
-WHERE effective_date=(SELECT DISTINCT ON(pda_imei,name) effective_date 
+WHERE device_key = ANY (SELECT DISTINCT ON (pda_imei) device_key 
                         FROM xbartos5.device_dimension 
-                        ORDER BY pda_imei,name,effective_date DESC);
+                        ORDER BY pda_imei, effective_date DESC);
 
 INSERT INTO xbartos5.app_dimension(program_ver)(
     SELECT DISTINCT program_ver from xdohnal.pa220ha1dataseptoct
@@ -111,12 +103,13 @@ INSERT INTO xbartos5.date_dimension(timestamp_full,year,month,day,hour)(
 );
 
 
+
 INSERT INTO xbartos5.sim_dimension(sim_imsi,gsmnet_id)(
     SELECT DISTINCT sim_imsi,gsmnet_id from xdohnal.pa220ha1dataseptoct
 );
 
 INSERT INTO xbartos5.car_dimension(car_key, spz, make, color, tonnage)(
-    SELECT DISTINCT car_key, spz, make, color, tonnage from xdohnal.car_info
+    SELECT DISTINCT ON (car_key) car_key, spz, make, color, tonnage from xdohnal.car_info
 );
 
 
@@ -150,3 +143,4 @@ INSERT INTO xbartos5.report_fact(device_key,
         AND base.gsmnet_id = sim.gsmnet_id
     INNER JOIN xbartos5.date_dimension as dateDim ON base.sl_time = dateDim.timestamp_full
 );
+
