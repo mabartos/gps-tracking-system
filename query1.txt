@@ -1,0 +1,95 @@
+/* SQL COMMAND */
+
+SELECT app.program_ver as "Program version", 
+        c.day as "Day",
+        count(*) as "Connections count"          
+FROM xbartos5.report_fact base 
+INNER JOIN xbartos5.date_dimension c ON c.date_key = base.date_conn_key 
+INNER JOIN xbartos5.app_dimension app ON base.app_key = app.app_key 
+WHERE c.year = 2020 AND c.month = 10 
+GROUP BY ROLLUP(c.day), ROLLUP(app.program_ver)                   
+ORDER BY c.day, app.program_ver DESC;
+
+
+/* Explain analyze */
+                                                                    QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=150996.60..151012.68 rows=6432 width=41) (actual time=3598.125..3598.149 rows=512 loops=1)
+   Sort Key: c.day, app.program_ver DESC
+   Sort Method: quicksort  Memory: 63kB
+   ->  MixedAggregate  (cost=2616.22..150589.74 rows=6432 width=41) (actual time=3597.407..3597.528 rows=512 loops=1)
+         Hash Key: c.day, app.program_ver
+         Hash Key: c.day
+         Hash Key: app.program_ver
+         Group Key: ()
+         Batches: 1  Memory Usage: 305kB
+         ->  Hash Join  (cost=2616.22..111261.66 rows=1963188 width=33) (actual time=52.778..2158.816 rows=1926280 loops=1)
+               Hash Cond: (base.app_key = app.app_key)
+               ->  Hash Join  (cost=2577.65..106052.52 rows=1963188 width=13) (actual time=52.738..1724.395 rows=1926280 loops=1)
+                     Hash Cond: (base.date_conn_key = c.date_key)
+                     ->  Seq Scan on report_fact base  (cost=0.00..93380.37 rows=3845337 width=16) (actual time=0.006..441.730 rows=3845305 loops=1)
+                     ->  Hash  (cost=2024.10..2024.10 rows=44284 width=13) (actual time=52.647..52.648 rows=44207 loops=1)
+                           Buckets: 65536  Batches: 1  Memory Usage: 2585kB
+                           ->  Seq Scan on date_dimension c  (cost=0.00..2024.10 rows=44284 width=13) (actual time=7.561..33.160 rows=44207 loops=1)
+                                 Filter: ((year = 2020) AND (month = '10'::numeric))
+                                 Rows Removed by Filter: 42533
+               ->  Hash  (cost=22.70..22.70 rows=1270 width=36) (actual time=0.031..0.032 rows=17 loops=1)
+                     Buckets: 2048  Batches: 1  Memory Usage: 17kB
+                     ->  Seq Scan on app_dimension app  (cost=0.00..22.70 rows=1270 width=36) (actual time=0.021..0.024 rows=17 loops=1)
+ Planning Time: 0.410 ms
+ Execution Time: 3598.277 ms
+(24 rows)
+
+
+/* First 20 records */
+
+Program version | Day | Connections count 
+-----------------+-----+-------------------
+                 |   1 |             53917      -- Count of connections per day 1
+ A56             |   1 |             34191
+ A54             |   1 |              1553
+ A53             |   1 |              8027
+ A52             |   1 |               570
+ A51             |   1 |              2257
+ A50             |   1 |              1019
+ A49             |   1 |              1650
+ A48             |   1 |               215
+ A47             |   1 |               267
+ A46             |   1 |              1938
+ A45             |   1 |                60
+ A44             |   1 |              1377
+ A42             |   1 |               606
+ A39             |   1 |                89
+ A29             |   1 |                98
+                 |   2 |             53708      -- Count of connections per day 2
+ A56             |   2 |             34220
+ A54             |   2 |              1357
+ A53             |   2 |              8064
+
+
+/* Totals */
+
+In the first row, there's a total count of connections in October 2020
+For the other rows, first column represents specific version of program 
+and the third column count of connections per the program version. 
+
+                 |     |           1926280      -- Total count of connections
+ A57             |     |               508      
+ A56             |     |           1301191
+ A54             |     |             59333
+ A53             |     |            198515
+ A52             |     |             26719
+ A51             |     |             92833
+ A50             |     |             36014      -- Total count of connections per program version A50
+ A49             |     |             55428
+ A48             |     |              7887
+ A47             |     |              8375
+ A46             |     |             57948
+ A45             |     |              4105
+ A44             |     |             55646
+ A42             |     |             15315
+ A39             |     |              3522
+ A29             |     |              2941
+
+
+// TODO some anomalies

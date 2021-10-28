@@ -1,0 +1,16 @@
+/* SQL COMMAND */
+
+SELECT app.program_ver as "Program version", 
+        c.day as "Day",
+        count(*) as "Connections count"          
+FROM xbartos5.report_fact base 
+INNER JOIN xbartos5.date_dimension c ON c.date_key = base.date_conn_key 
+INNER JOIN xbartos5.app_dimension app ON base.app_key = app.app_key 
+WHERE c.year = 2020 AND c.month = 10 
+GROUP BY ROLLUP(c.month), ROLLUP(c.day_of_week)                   
+ORDER BY c.day, app.program_ver DESC;
+
+/* Explain analyze */
+
+
+/* First 20 records */
