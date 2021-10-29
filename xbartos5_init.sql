@@ -38,14 +38,14 @@ CREATE TABLE xbartos5.date_dimension(
 
 CREATE TABLE xbartos5.sim_dimension(
     sim_key BIGINT GENERATED ALWAYS AS IDENTITY,
-    sim_imsi CHARACTER(15),
+    sim_imsi CHARACTER(15) NOT NULL CHECK(sim_imsi <> ''),
     
     PRIMARY KEY(sim_key)
 );
 
 CREATE TABLE xbartos5.gsm_network_dimension(
     gsm_key BIGINT GENERATED ALWAYS AS IDENTITY,
-    gsmnet_id VARCHAR(6),
+    gsmnet_id VARCHAR(6) NOT NULL CHECK(gsmnet_id <> ''),
     isp_country TEXT,
 
     PRIMARY KEY(gsm_key)
@@ -139,11 +139,13 @@ INSERT INTO xbartos5.date_dimension(timestamp_full, week_day, year, month, day, 
 
 INSERT INTO xbartos5.sim_dimension(sim_imsi)(
     SELECT DISTINCT sim_imsi from xdohnal.pa220ha1dataseptoct
+    WHERE sim_imsi IS NOT NULL AND sim_imsi <> ''
 );
 
 INSERT INTO xbartos5.gsm_network_dimension(gsmnet_id)(
-    SELECT DISTINCT ON(gsmnet_id) gsmnet_id from xdohnal.pa220ha1dataseptoct
-);
+    SELECT DISTINCT ON(gsmnet_id) gsmnet_id from xdohnal.pa220ha1dataseptoct 
+    WHERE gsmnet_id IS NOT NULL AND gsmnet_id <> ''
+);  
 
 INSERT INTO xbartos5.car_dimension(car_key, spz, make, color, tonnage)(
     SELECT DISTINCT ON (car_key) car_key, spz, make, color, tonnage from xdohnal.car_info

@@ -1,15 +1,16 @@
 /* SQL COMMAND */
 
-SELECT app.program_ver as "Program version", 
-        c.day as "Day",
+SELECT gsm.gsmnet_id,
+        c.month as "Month",
+        c.week_day as "Day of week",
         count(*) as "Connections count"          
 FROM xbartos5.report_fact base 
 INNER JOIN xbartos5.date_dimension c ON c.date_key = base.date_conn_key 
-INNER JOIN xbartos5.app_dimension app ON base.app_key = app.app_key 
-WHERE c.year = 2020 AND c.month = 10 
-GROUP BY ROLLUP(c.month), ROLLUP(c.day_of_week)                   
-ORDER BY c.day, app.program_ver DESC;
+INNER JOIN xbartos5.gsm_network_dimension gsm ON base.gsm_key = gsm.gsm_key
+GROUP BY ROLLUP(gsm.gsmnet_id, c.month, c.week_day)
+ORDER BY gsm.gsmnet_id,c.month,c.week_day DESC;
 
+// TODO COUNTRY NAMES
 /* Explain analyze */
 
 
