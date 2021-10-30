@@ -1,0 +1,79 @@
+/* SQL COMMAND */
+
+SELECT r.name as "Device model",
+        r.program_ver as "App version",
+        COUNT(*) as "Count of app restarts"
+FROM (
+    SELECT
+        dev.name,
+        app.program_ver,
+        base.app_run_time,
+        LEAD(base.app_run_time, 1) OVER (
+            PARTITION BY base.device_key
+            ORDER BY base.device_key
+        ) as next_app_run_time,
+        base.pda_run_time,
+        LEAD(base.pda_run_time, 1) OVER (
+            PARTITION BY base.device_key
+            ORDER BY base.device_key
+        ) as next_pda_run_time
+    FROM xbartos5.report_fact base
+    INNER JOIN xbartos5.device_dimension dev ON base.device_key = dev.device_key
+    INNER JOIN xbartos5.app_dimension app ON base.app_key = app.app_key
+) r
+WHERE r.app_run_time > r.next_app_run_time
+AND r.pda_run_time < r.next_pda_run_time
+GROUP BY r.name, r.program_ver
+ORDER BY COUNT(*) DESC, r.name ASC, r.program_ver ASC
+LIMIT 10;
+
+
+/* Explain analyze */
+                                                                                 QUERY PLAN                                                                                  
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=1002018.37..1002018.40 rows=10 width=46) (actual time=7605.200..7605.205 rows=10 loops=1)
+   ->  Sort  (cost=1002018.37..1002853.84 rows=334187 width=46) (actual time=7605.198..7605.202 rows=10 loops=1)
+         Sort Key: (count(*)) DESC, r.name, r.program_ver
+         Sort Method: top-N heapsort  Memory: 26kB
+         ->  HashAggregate  (cost=984822.56..994796.71 rows=334187 width=46) (actual time=7605.035..7605.160 rows=141 loops=1)
+               Group Key: r.name, r.program_ver
+               Planned Partitions: 16  Batches: 1  Memory Usage: 801kB
+               ->  Subquery Scan on r  (cost=755608.79..946620.62 rows=424466 width=38) (actual time=2871.096..7603.430 rows=3504 loops=1)
+                     Filter: ((r.app_run_time > r.next_app_run_time) AND (r.pda_run_time < r.next_pda_run_time))
+                     Rows Removed by Filter: 3816746
+                     ->  WindowAgg  (cost=755608.79..889317.75 rows=3820191 width=122) (actual time=2870.449..7114.972 rows=3820250 loops=1)
+                           ->  Merge Join  (cost=755608.79..812913.93 rows=3820191 width=58) (actual time=2869.854..4150.253 rows=3820250 loops=1)
+                                 Merge Cond: (base.device_key = dev.device_key)
+                                 ->  Sort  (cost=755550.41..765100.88 rows=3820191 width=48) (actual time=2869.573..3452.651 rows=3820250 loops=1)
+                                       Sort Key: base.device_key
+                                       Sort Method: external merge  Disk: 142072kB
+                                       ->  Hash Join  (cost=38.58..102871.95 rows=3820191 width=48) (actual time=0.028..1320.684 rows=3820250 loops=1)
+                                             Hash Cond: (base.app_key = app.app_key)
+                                             ->  Seq Scan on report_fact base  (cost=0.00..92771.91 rows=3820191 width=28) (actual time=0.008..402.596 rows=3820250 loops=1)
+                                             ->  Hash  (cost=22.70..22.70 rows=1270 width=36) (actual time=0.012..0.013 rows=17 loops=1)
+                                                   Buckets: 2048  Batches: 1  Memory Usage: 17kB
+                                                   ->  Seq Scan on app_dimension app  (cost=0.00..22.70 rows=1270 width=36) (actual time=0.004..0.007 rows=17 loops=1)
+                                 ->  Sort  (cost=57.02..58.84 rows=730 width=18) (actual time=0.275..0.373 rows=729 loops=1)
+                                       Sort Key: dev.device_key
+                                       Sort Method: quicksort  Memory: 70kB
+                                       ->  Seq Scan on device_dimension dev  (cost=0.00..22.30 rows=730 width=18) (actual time=0.012..0.116 rows=730 loops=1)
+ Planning Time: 0.350 ms
+ Execution Time: 7628.108 ms
+(28 rows)
+
+
+/* Result */
+
+ Device model | App version | Count of app restarts 
+--------------+-------------+-----------------------
+ MYA-L41      | A56         |                   571
+ Nokia 2.3    | A56         |                   471
+ KSA-LX9      | A56         |                   364
+ MRD-LX1      | A56         |                   282
+ AMN-LX9      | A56         |                   157
+ Redmi 6A     | A56         |                   130
+ DRA-L21      | A56         |                   126
+ DRA-L21      | A53         |                    83
+ Lenovo A6010 | A56         |                    77
+ Mi Note 10   | A56         |                    67
+(10 rows)
