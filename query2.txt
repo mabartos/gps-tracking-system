@@ -1,17 +1,74 @@
 /* SQL COMMAND */
 
 SELECT gsm.gsmnet_id,
+        gsm.prov_country as "Country",
         c.month as "Month",
         c.week_day as "Day of week",
         count(*) as "Connections count"          
 FROM xbartos5.report_fact base 
 INNER JOIN xbartos5.date_dimension c ON c.date_key = base.date_conn_key 
 INNER JOIN xbartos5.gsm_network_dimension gsm ON base.gsm_key = gsm.gsm_key
-GROUP BY ROLLUP(gsm.gsmnet_id, c.month, c.week_day)
-ORDER BY gsm.gsmnet_id,c.month,c.week_day DESC;
+GROUP BY CUBE(c.month, c.week_day), gsm.gsmnet_id, gsm.prov_country
+ORDER BY gsm.gsmnet_id, c.month, c.week_day DESC;
 
-// TODO COUNTRY NAMES
+// COMMENTS
+With SQL script 'xbartos5_fill_country_table.sql' we added new attribute (prov_country = Provider Country) to the GSM network dimension.
+We also update the attribute to the particular country name, where the names are stored in 'xbartos5.providers_country_dimension' dimension and associated with it.
+
 /* Explain analyze */
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=307440.13..307446.45 rows=2528 width=37) (actual time=8766.086..8766.144 rows=1408 loops=1)
+   Sort Key: gsm.gsmnet_id, c.month, c.week_day DESC
+   Sort Method: quicksort  Memory: 158kB
+   ->  HashAggregate  (cost=202213.47..307297.25 rows=2528 width=37) (actual time=8763.244..8763.546 rows=1408 loops=1)
+         Hash Key: gsm.gsmnet_id, gsm.prov_country, c.month, c.week_day
+         Hash Key: gsm.gsmnet_id, gsm.prov_country, c.month
+         Hash Key: gsm.gsmnet_id, gsm.prov_country
+         Hash Key: c.week_day, gsm.gsmnet_id, gsm.prov_country
+         Batches: 1  Memory Usage: 405kB
+         ->  Hash Join  (cost=3274.43..154459.61 rows=3820309 width=29) (actual time=33.718..3030.413 rows=3820250 loops=1)
+               Hash Cond: (base.gsm_key = gsm.gsm_key)
+               ->  Hash Join  (cost=3271.65..143890.54 rows=3820309 width=23) (actual time=33.671..2301.560 rows=3820250 loops=1)
+                     Hash Cond: (base.date_conn_key = c.date_key)
+                     ->  Seq Scan on report_fact base  (cost=0.00..92773.09 rows=3820309 width=16) (actual time=0.007..733.194 rows=3820250 loops=1)
+                     ->  Hash  (cost=1678.40..1678.40 rows=86740 width=23) (actual time=33.579..33.579 rows=86740 loops=1)
+                           Buckets: 65536  Batches: 2  Memory Usage: 2885kB
+                           ->  Seq Scan on date_dimension c  (cost=0.00..1678.40 rows=86740 width=23) (actual time=0.008..14.915 rows=86740 loops=1)
+               ->  Hash  (cost=1.79..1.79 rows=79 width=22) (actual time=0.039..0.040 rows=79 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 13kB
+                     ->  Seq Scan on gsm_network_dimension gsm  (cost=0.00..1.79 rows=79 width=22) (actual time=0.013..0.021 rows=79 loops=1)
+ Planning Time: 0.517 ms
+ Execution Time: 8766.283 ms
+(22 rows)
 
+/* Records for particular provider network */
 
-/* First 20 records */
+ gsmnet_id |    Country     | Month | Day of week | Connections count 
+-----------+----------------+-------+-------------+-------------------
+ 20404     | Netherlands    |     8 |             |                14   
+ 20404     | Netherlands    |     8 | Monday      |                14   
+ 20404     | Netherlands    |     9 |             |              6214   -- Count of connections during October
+ 20404     | Netherlands    |     9 | Wednesday   |              1304   
+ 20404     | Netherlands    |     9 | Tuesday     |              1478   -- Count of connections each Tuesday in October
+ 20404     | Netherlands    |     9 | Thursday    |              1040   -- Count of connections each Thursday in October
+ 20404     | Netherlands    |     9 | Sunday      |               165
+ 20404     | Netherlands    |     9 | Saturday    |               156
+ 20404     | Netherlands    |     9 | Monday      |              1508
+ 20404     | Netherlands    |     9 | Friday      |               563
+ 20404     | Netherlands    |    10 |             |              5664
+ 20404     | Netherlands    |    10 | Wednesday   |               750
+ 20404     | Netherlands    |    10 | Tuesday     |               920
+ 20404     | Netherlands    |    10 | Thursday    |              1042
+ 20404     | Netherlands    |    10 | Sunday      |               415
+ 20404     | Netherlands    |    10 | Saturday    |               343
+ 20404     | Netherlands    |    10 | Monday      |              1637
+ 20404     | Netherlands    |    10 | Friday      |               557
+ 20404     | Netherlands    |       |             |             11892   -- Count of connections for all time in the specific network
+ 20404     | Netherlands    |       | Wednesday   |              2054
+ 20404     | Netherlands    |       | Tuesday     |              2398
+ 20404     | Netherlands    |       | Thursday    |              2082
+ 20404     | Netherlands    |       | Sunday      |               580
+ 20404     | Netherlands    |       | Saturday    |               499
+ 20404     | Netherlands    |       | Monday      |              3159
+ 20404     | Netherlands    |       | Friday      |              1120

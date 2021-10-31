@@ -46,7 +46,6 @@ CREATE TABLE xbartos5.sim_dimension(
 CREATE TABLE xbartos5.gsm_network_dimension(
     gsm_key BIGINT GENERATED ALWAYS AS IDENTITY,
     gsmnet_id VARCHAR(6) NOT NULL CHECK(gsmnet_id <> ''),
-    isp_country TEXT,
 
     PRIMARY KEY(gsm_key)
 );

@@ -7,39 +7,37 @@ FROM xbartos5.report_fact base
 INNER JOIN xbartos5.date_dimension c ON c.date_key = base.date_conn_key 
 INNER JOIN xbartos5.app_dimension app ON base.app_key = app.app_key 
 WHERE c.year = 2020 AND c.month = 10 
-GROUP BY CUBE(c.day,app.program_ver)                    
+GROUP BY CUBE(c.day, app.program_ver)                    
 ORDER BY c.day, app.program_ver DESC;
-
 
 /* Explain analyze */
                                                                      QUERY PLAN                                                                      
 -----------------------------------------------------------------------------------------------------------------------------------------------------
- Sort  (cost=149885.39..149901.47 rows=6432 width=41) (actual time=3094.740..3094.762 rows=512 loops=1)
+ Sort  (cost=150043.68..150059.76 rows=6432 width=41) (actual time=3455.477..3455.502 rows=512 loops=1)
    Sort Key: c.day, app.program_ver DESC
    Sort Method: quicksort  Memory: 63kB
-   ->  MixedAggregate  (cost=2701.32..149478.53 rows=6432 width=41) (actual time=3094.049..3094.162 rows=512 loops=1)
+   ->  MixedAggregate  (cost=2703.25..149636.82 rows=6432 width=41) (actual time=3454.742..3454.878 rows=512 loops=1)
          Hash Key: c.day, app.program_ver
          Hash Key: c.day
          Hash Key: app.program_ver
          Group Key: ()
          Batches: 1  Memory Usage: 305kB
-         ->  Hash Join  (cost=2701.32..110611.57 rows=1940132 width=33) (actual time=31.053..1704.148 rows=1912810 loops=1)
+         ->  Hash Join  (cost=2703.25..110633.00 rows=1946975 width=33) (actual time=32.058..2053.025 rows=1912810 loops=1)
                Hash Cond: (base.app_key = app.app_key)
-               ->  Hash Join  (cost=2662.75..105463.15 rows=1940132 width=13) (actual time=31.029..1284.299 rows=1912810 loops=1)
+               ->  Hash Join  (cost=2664.68..105466.57 rows=1946975 width=13) (actual time=32.034..1619.873 rows=1912810 loops=1)
                      Hash Cond: (base.date_conn_key = c.date_key)
-                     ->  Seq Scan on report_fact base  (cost=0.00..92771.91 rows=3820191 width=16) (actual time=0.005..401.945 rows=3820250 loops=1)
-                     ->  Hash  (cost=2112.10..2112.10 rows=44052 width=13) (actual time=30.933..30.933 rows=44207 loops=1)
+                     ->  Seq Scan on report_fact base  (cost=0.00..92773.09 rows=3820309 width=16) (actual time=0.017..492.387 rows=3820250 loops=1)
+                     ->  Hash  (cost=2112.10..2112.10 rows=44206 width=13) (actual time=31.933..31.934 rows=44207 loops=1)
                            Buckets: 65536  Batches: 1  Memory Usage: 2585kB
-                           ->  Seq Scan on date_dimension c  (cost=0.00..2112.10 rows=44052 width=13) (actual time=7.957..22.370 rows=44207 loops=1)
+                           ->  Seq Scan on date_dimension c  (cost=0.00..2112.10 rows=44206 width=13) (actual time=8.210..22.784 rows=44207 loops=1)
                                  Filter: ((year = 2020) AND (month = '10'::numeric))
                                  Rows Removed by Filter: 42533
-               ->  Hash  (cost=22.70..22.70 rows=1270 width=36) (actual time=0.016..0.016 rows=17 loops=1)
+               ->  Hash  (cost=22.70..22.70 rows=1270 width=36) (actual time=0.017..0.018 rows=17 loops=1)
                      Buckets: 2048  Batches: 1  Memory Usage: 17kB
-                     ->  Seq Scan on app_dimension app  (cost=0.00..22.70 rows=1270 width=36) (actual time=0.007..0.010 rows=17 loops=1)
- Planning Time: 0.310 ms
- Execution Time: 3094.876 ms
+                     ->  Seq Scan on app_dimension app  (cost=0.00..22.70 rows=1270 width=36) (actual time=0.008..0.011 rows=17 loops=1)
+ Planning Time: 0.351 ms
+ Execution Time: 3455.627 ms
 (24 rows)
-
 
 
 /* First records */
