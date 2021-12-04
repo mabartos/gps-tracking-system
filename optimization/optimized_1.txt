@@ -94,7 +94,6 @@ INSERT INTO xbartos5.connections_ver_2020_10(program_ver, year, month, day)(
 );
 
 /* Year 2020, Month 11 */
-...
 
 /*-----Create-function-for-inserting-record-to-particular-table-----*/
 

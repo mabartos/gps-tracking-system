@@ -2,12 +2,49 @@
 /* 1. ORIGINAL SELECT - QUERY 3 */
 /*------------------------------*/
 
-
+SELECT dev.name as "Device model",
+        MIN(app.program_ver) as "Oldest version",
+        MAX(app.program_ver) as "Newest version"        
+FROM xbartos5.report_fact base 
+INNER JOIN xbartos5.device_dimension dev ON dev.device_key = base.device_key 
+INNER JOIN xbartos5.app_dimension app ON app.app_key = base.app_key
+GROUP BY dev.name
+ORDER BY dev.name ASC;
 
 /*-----------------------------*/
 /* 2. EXPLAIN ANALYZE ORIGINAL */
 /*-----------------------------*/
-
+                                                                                QUERY PLAN                                                                                
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Finalize GroupAggregate  (cost=91896.67..91932.07 rows=137 width=74) (actual time=1260.088..1287.784 rows=136 loops=1)
+   Group Key: dev.name
+   ->  Gather Merge  (cost=91896.67..91928.64 rows=274 width=74) (actual time=1260.077..1287.637 rows=395 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         ->  Sort  (cost=90896.65..90896.99 rows=137 width=74) (actual time=1256.254..1256.265 rows=132 loops=3)
+               Sort Key: dev.name
+               Sort Method: quicksort  Memory: 33kB
+               Worker 0:  Sort Method: quicksort  Memory: 33kB
+               Worker 1:  Sort Method: quicksort  Memory: 33kB
+               ->  Partial HashAggregate  (cost=90890.42..90891.79 rows=137 width=74) (actual time=1256.019..1256.057 rows=132 loops=3)
+                     Group Key: dev.name
+                     Batches: 1  Memory Usage: 64kB
+                     Worker 0:  Batches: 1  Memory Usage: 64kB
+                     Worker 1:  Batches: 1  Memory Usage: 64kB
+                     ->  Hash Join  (cost=70.00..78952.32 rows=1591746 width=38) (actual time=0.462..775.452 rows=1273417 loops=3)
+                           Hash Cond: (base.app_key = app.app_key)
+                           ->  Hash Join  (cost=31.43..74721.47 rows=1591746 width=18) (actual time=0.406..501.908 rows=1273417 loops=3)
+                                 Hash Cond: (base.device_key = dev.device_key)
+                                 ->  Parallel Seq Scan on report_fact base  (cost=0.00..70487.46 rows=1591746 width=16) (actual time=0.020..187.429 rows=1273417 loops=3)
+                                 ->  Hash  (cost=22.30..22.30 rows=730 width=18) (actual time=0.373..0.374 rows=730 loops=3)
+                                       Buckets: 1024  Batches: 1  Memory Usage: 46kB
+                                       ->  Seq Scan on device_dimension dev  (cost=0.00..22.30 rows=730 width=18) (actual time=0.020..0.228 rows=730 loops=3)
+                           ->  Hash  (cost=22.70..22.70 rows=1270 width=36) (actual time=0.031..0.031 rows=17 loops=3)
+                                 Buckets: 2048  Batches: 1  Memory Usage: 17kB
+                                 ->  Seq Scan on app_dimension app  (cost=0.00..22.70 rows=1270 width=36) (actual time=0.021..0.024 rows=17 loops=3)
+ Planning Time: 0.317 ms
+ Execution Time: 1287.900 ms
+(28 rows)
 
 
 /*----------------------------------*/
