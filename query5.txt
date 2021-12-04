@@ -20,65 +20,40 @@ FROM (
 ) r 
 WHERE r.next_app_run_time >= r.app_run_time 
 AND (r.next_app_run_time - r.app_run_time) <= 0.08334   -- 5 minutes       
-GROUP BY r.pda_imei, r.name, r.program_ver
+GROUP BY GROUPING SETS ((r.pda_imei, r.name, r.program_ver), (r.name, r.program_ver))
 ORDER BY COUNT(*) DESC, r.name ASC, r.program_ver ASC, r.pda_imei ASC;
 
 /* Explain analyze */
                                                                                  QUERY PLAN                                                                                  
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Sort  (cost=1065873.66..1066932.75 rows=423634 width=62) (actual time=7907.157..7907.190 rows=648 loops=1)
+ Sort  (cost=1144719.49..1146614.11 rows=757845 width=62) (actual time=9043.482..9043.526 rows=830 loops=1)
    Sort Key: (count(*)) DESC, r.name, r.program_ver, r.pda_imei
-   Sort Method: quicksort  Memory: 76kB
-   ->  GroupAggregate  (cost=1000809.19..1010351.36 rows=423634 width=62) (actual time=7664.977..7906.207 rows=648 loops=1)
-         Group Key: r.pda_imei, r.name, r.program_ver
-         ->  Sort  (cost=1000809.19..1001870.36 rows=424466 width=54) (actual time=7664.963..7820.719 rows=394409 loops=1)
-               Sort Key: r.pda_imei, r.name, r.program_ver
+   Sort Method: quicksort  Memory: 90kB
+   ->  GroupAggregate  (cost=1000838.64..1013723.08 rows=757845 width=62) (actual time=8737.867..9042.226 rows=830 loops=1)
+         Group Key: r.name, r.program_ver, r.pda_imei
+         Group Key: r.name, r.program_ver
+         ->  Sort  (cost=1000838.64..1001899.84 rows=424479 width=54) (actual time=8737.592..8945.981 rows=394409 loops=1)
+               Sort Key: r.name, r.program_ver, r.pda_imei
                Sort Method: external merge  Disk: 15624kB
-               ->  Subquery Scan on r  (cost=755608.79..946620.62 rows=424466 width=54) (actual time=2705.794..7457.284 rows=394409 loops=1)
+               ->  Subquery Scan on r  (cost=755631.03..946648.76 rows=424479 width=54) (actual time=3115.765..8456.642 rows=394409 loops=1)
                      Filter: ((r.next_app_run_time >= r.app_run_time) AND ((r.next_app_run_time - r.app_run_time) <= 0.08334))
                      Rows Removed by Filter: 3425841
-                     ->  WindowAgg  (cost=755608.79..879767.28 rows=3820191 width=100) (actual time=2696.278..6320.349 rows=3820250 loops=1)
-                           ->  Merge Join  (cost=755608.79..812913.93 rows=3820191 width=68) (actual time=2695.693..3914.947 rows=3820250 loops=1)
+                     ->  WindowAgg  (cost=755631.03..879793.35 rows=3820309 width=100) (actual time=3104.987..7217.072 rows=3820250 loops=1)
+                           ->  Merge Join  (cost=755631.03..812937.95 rows=3820309 width=68) (actual time=3104.315..4457.211 rows=3820250 loops=1)
                                  Merge Cond: (base.device_key = dev.device_key)
-                                 ->  Sort  (cost=755550.41..765100.88 rows=3820191 width=42) (actual time=2695.372..3249.689 rows=3820250 loops=1)
+                                 ->  Sort  (cost=755572.65..765123.42 rows=3820309 width=42) (actual time=3103.958..3702.993 rows=3820250 loops=1)
                                        Sort Key: base.device_key
                                        Sort Method: external merge  Disk: 112168kB
-                                       ->  Hash Join  (cost=38.58..102871.95 rows=3820191 width=42) (actual time=0.032..1301.930 rows=3820250 loops=1)
+                                       ->  Hash Join  (cost=38.58..102873.44 rows=3820309 width=42) (actual time=0.057..1513.103 rows=3820250 loops=1)
                                              Hash Cond: (base.app_key = app.app_key)
-                                             ->  Seq Scan on report_fact base  (cost=0.00..92771.91 rows=3820191 width=22) (actual time=0.009..411.322 rows=3820250 loops=1)
-                                             ->  Hash  (cost=22.70..22.70 rows=1270 width=36) (actual time=0.013..0.015 rows=17 loops=1)
+                                             ->  Seq Scan on report_fact base  (cost=0.00..92773.09 rows=3820309 width=22) (actual time=0.017..475.681 rows=3820250 loops=1)
+                                             ->  Hash  (cost=22.70..22.70 rows=1270 width=36) (actual time=0.024..0.025 rows=17 loops=1)
                                                    Buckets: 2048  Batches: 1  Memory Usage: 17kB
-                                                   ->  Seq Scan on app_dimension app  (cost=0.00..22.70 rows=1270 width=36) (actual time=0.005..0.008 rows=17 loops=1)
-                                 ->  Sort  (cost=57.02..58.84 rows=730 width=34) (actual time=0.316..0.514 rows=729 loops=1)
+                                                   ->  Seq Scan on app_dimension app  (cost=0.00..22.70 rows=1270 width=36) (actual time=0.008..0.013 rows=17 loops=1)
+                                 ->  Sort  (cost=57.02..58.84 rows=730 width=34) (actual time=0.350..0.473 rows=729 loops=1)
                                        Sort Key: dev.device_key
                                        Sort Method: quicksort  Memory: 82kB
-                                       ->  Seq Scan on device_dimension dev  (cost=0.00..22.30 rows=730 width=34) (actual time=0.011..0.133 rows=730 loops=1)
- Planning Time: 0.322 ms
- Execution Time: 7928.184 ms
-(29 rows)
-
-
-/* First records */
-
- Device PDA_IMEI  |  Device model  | App version | Count of connectivity problems 
-------------------+----------------+-------------+--------------------------------
- 861945048322394  | AMN-LX9        | A54         |                          17601
- 861366047251965  | AMN-LX9        | A53         |                          17034
- 863533039187774  | HUAWEI CUN-L21 | A53         |                          16195
- 352061100017801  | VFD 528        | A53         |                          15870
- 861945048335800  | AMN-LX9        | A54         |                          13602
- 860540044908667  | AMN-LX9        | A53         |                          12137
- 866651040276274  | DRA-L21        | A53         |                          11810
- 866587046059001  | Redmi Go       | A53         |                          10532
- 860540044405193  | AMN-LX9        | A53         |                          10311
- 860540044443665  | AMN-LX9        | A53         |                          10159
- 864750049539427  | Redmi Go       | A56         |                           9707
- 860484036490667  | HUAWEI CUN-L21 | A52         |                           9203
- 864782033201409  | HUAWEI CUN-L21 | A53         |                           8895
- 864194039426974  | HUAWEI CUN-L21 | A53         |                           8853
- 864782033212240  | HUAWEI CUN-L21 | A53         |                           7989
- 355754085712035  | SM-J320FN      | A53         |                           7932
- 860484037936239  | HUAWEI CUN-L21 | A52         |                           7797
- 864722049323540  | DRA-L21        | A53         |                           7187
- 0123456789ABCDEF | SM-G975F       | A56         |                           6945
- 860484037939332  | HUAWEI CUN-L21 | A53         |                           6873
+                                       ->  Seq Scan on device_dimension dev  (cost=0.00..22.30 rows=730 width=34) (actual time=0.015..0.145 rows=730 loops=1)
+ Planning Time: 0.586 ms
+ Execution Time: 9072.234 ms
+(30 rows)

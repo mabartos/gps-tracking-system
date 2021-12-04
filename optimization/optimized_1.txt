@@ -1,0 +1,152 @@
+/*------------------------------*/
+/* 1. ORIGINAL SELECT - QUERY 1 */
+/*------------------------------*/
+
+SELECT app.program_ver as "Program version", 
+        c.day as "Day",
+        count(*) as "Connections count"          
+FROM xbartos5.report_fact base 
+INNER JOIN xbartos5.date_dimension c ON c.date_key = base.date_conn_key 
+INNER JOIN xbartos5.app_dimension app ON base.app_key = app.app_key 
+WHERE c.year = 2020 AND c.month = 10 
+GROUP BY CUBE(c.day, app.program_ver)                    
+ORDER BY c.day, app.program_ver DESC;
+
+/*-----------------------------*/
+/* 2. EXPLAIN ANALYZE ORIGINAL */
+/*-----------------------------*/
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=150043.68..150059.76 rows=6432 width=41) (actual time=3455.477..3455.502 rows=512 loops=1)
+   Sort Key: c.day, app.program_ver DESC
+   Sort Method: quicksort  Memory: 63kB
+   ->  MixedAggregate  (cost=2703.25..149636.82 rows=6432 width=41) (actual time=3454.742..3454.878 rows=512 loops=1)
+         Hash Key: c.day, app.program_ver
+         Hash Key: c.day
+         Hash Key: app.program_ver
+         Group Key: ()
+         Batches: 1  Memory Usage: 305kB
+         ->  Hash Join  (cost=2703.25..110633.00 rows=1946975 width=33) (actual time=32.058..2053.025 rows=1912810 loops=1)
+               Hash Cond: (base.app_key = app.app_key)
+               ->  Hash Join  (cost=2664.68..105466.57 rows=1946975 width=13) (actual time=32.034..1619.873 rows=1912810 loops=1)
+                     Hash Cond: (base.date_conn_key = c.date_key)
+                     ->  Seq Scan on report_fact base  (cost=0.00..92773.09 rows=3820309 width=16) (actual time=0.017..492.387 rows=3820250 loops=1)
+                     ->  Hash  (cost=2112.10..2112.10 rows=44206 width=13) (actual time=31.933..31.934 rows=44207 loops=1)
+                           Buckets: 65536  Batches: 1  Memory Usage: 2585kB
+                           ->  Seq Scan on date_dimension c  (cost=0.00..2112.10 rows=44206 width=13) (actual time=8.210..22.784 rows=44207 loops=1)
+                                 Filter: ((year = 2020) AND (month = '10'::numeric))
+                                 Rows Removed by Filter: 42533
+               ->  Hash  (cost=22.70..22.70 rows=1270 width=36) (actual time=0.017..0.018 rows=17 loops=1)
+                     Buckets: 2048  Batches: 1  Memory Usage: 17kB
+                     ->  Seq Scan on app_dimension app  (cost=0.00..22.70 rows=1270 width=36) (actual time=0.008..0.011 rows=17 loops=1)
+ Planning Time: 0.351 ms
+ Execution Time: 3455.627 ms
+(24 rows)
+
+/*----------------------------------*/
+/* 3. COMMENT PROPOSED OPTIMIZATION */
+/*----------------------------------*/
+
+I've decided to use Horizontal partitioning for optimization the query, 
+where is possible to easily split records to particular tables by specific year and month.
+In this case, admin must each month create new table for the records and edit provided function. 
+With this optimization, the execution time was decreased from 3455ms to 1764ms.
+
+
+/*-----------------------------*/
+/* 4. IMPLEMENTED OPTIMIZATION */
+/*-----------------------------*/
+
+DROP TABLE xbartos5.connections_ver CASCADE;
+
+/* Create base table */
+
+CREATE TABLE xbartos5.connections_ver (
+    program_ver VARCHAR(6),
+    year SMALLINT NOT NULL check(year > -1),
+    month NUMERIC(2,0) NOT NULL check(month > 0 AND month < 13),
+    day NUMERIC(2,0) NOT NULL check(day > 0 AND day < 32)
+);
+
+/*-----Create-table-for-each-month-of-particular-year-----*/
+
+/* Year 2020, Month 10 */
+
+CREATE TABLE xbartos5.connections_ver_2020_10 (
+    CHECK (year = 2020 AND month = 10)
+)
+INHERITS (xbartos5.connections_ver);
+
+CREATE INDEX connections_ver_2020_10_idx ON xbartos5.connections_ver_2020_10 (year, month); 
+
+/* Year 2020, Month 11 */
+...
+
+/*----------------Fill-the-tables----------------*/
+
+/* Year 2020, Month 10 */
+INSERT INTO xbartos5.connections_ver_2020_10(program_ver, year, month, day)(
+    SELECT app.program_ver, c.year, c.month, c.day
+    FROM xbartos5.report_fact base 
+    INNER JOIN xbartos5.date_dimension c ON c.date_key = base.date_conn_key 
+    INNER JOIN xbartos5.app_dimension app ON base.app_key = app.app_key
+    WHERE c.year = 2020 AND c.month = 10 
+);
+
+/* Year 2020, Month 11 */
+...
+
+/*-----Create-function-for-inserting-record-to-particular-table-----*/
+
+CREATE OR REPLACE FUNCTION xbartos5.connections_ver_insert_trigger()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (NEW.year = 2020) THEN
+        IF (NEW.month = 10) THEN
+            INSERT INTO xbartos5.connections_ver_2020_10 VALUES (NEW.*);
+        ELSIF (NEW.month = 11) THEN
+            /* insert to table xbartos5.connections_ver_2020_11 */
+        END IF;
+    ELSIF (NEW.year = 2021) THEN
+        /* Validate year 2021 */
+    END IF;
+    RETURN NULL;
+END;
+$$
+LANGUAGE plpgsql;
+
+/* Trigger which is executed before each insertion to the 'xbartos5.connections_ver' table*/
+
+CREATE TRIGGER insert_connections_ver_trigger
+    BEFORE INSERT ON xbartos5.connections_ver
+    FOR EACH ROW EXECUTE PROCEDURE xbartos5.connections_ver_insert_trigger();
+
+/* Enable constraint exclusion in PostgreSQL */
+SET constraint_exclusion = on;
+
+/* Optimazed Select */
+SELECT con.program_ver as "Program version", 
+        con.day as "Day",
+        count(*) as "Connections count"          
+FROM xbartos5.connections_ver_2020_10 con 
+GROUP BY CUBE(con.day, con.program_ver)                    
+ORDER BY con.day, con.program_ver DESC;
+
+/*------------------------------*/
+/* 5. EXPLAIN ANALYZE OPTIMIZED */
+/*------------------------------*/
+                                                                    QUERY PLAN                                                                     
+---------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=67754.46..67755.82 rows=544 width=17) (actual time=1764.188..1764.212 rows=512 loops=1)
+   Sort Key: day, program_ver DESC
+   Sort Method: quicksort  Memory: 63kB
+   ->  MixedAggregate  (cost=0.00..67729.74 rows=544 width=17) (actual time=1763.388..1763.488 rows=512 loops=1)
+         Hash Key: day, program_ver
+         Hash Key: day
+         Hash Key: program_ver
+         Group Key: ()
+         Batches: 1  Memory Usage: 129kB
+         ->  Seq Scan on connections_ver_2020_10 con  (cost=0.00..29468.10 rows=1912810 width=9) (actual time=0.012..147.562 rows=1912810 loops=1)
+ Planning Time: 0.095 ms
+ Execution Time: 1764.291 ms
+(12 rows)
