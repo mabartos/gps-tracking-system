@@ -76,8 +76,9 @@ Materialized View
 /* 4. IMPLEMENTED OPTIMIZATION */
 /*-----------------------------*/
 
-CREATE MATERIALIZED VIEW TimeInfo(device, program_ver, app_run_time, next_app_run_time, pda_run_time, next_pda_run_time) AS
+CREATE MATERIALIZED VIEW xbartos5.DeviceInfo(pda_imei, device, program_ver, app_run_time, next_app_run_time, pda_run_time, next_pda_run_time) AS
 SELECT
+        dev.pda_imei,
         dev.name,
         app.program_ver,
         base.app_run_time,
@@ -94,11 +95,13 @@ SELECT
     INNER JOIN xbartos5.device_dimension dev ON base.device_key = dev.device_key
     INNER JOIN xbartos5.app_dimension app ON base.app_key = app.app_key;
 
+CREATE INDEX DeviceInfo_idx ON xbartos5.DeviceInfo(device);
+CREATE INDEX DeviceInfo_prog_ver_idx ON xbartos5.DeviceInfo(program_ver);
 
 SELECT info.device as "Device model",
         info.program_ver as "App version",
         COUNT(*) as "Count of app restarts"
-FROM TimeInfo info
+FROM xbartos5.DeviceInfo info
 WHERE info.app_run_time > info.next_app_run_time
 AND info.pda_run_time < info.next_pda_run_time
 GROUP BY info.device, info.program_ver
@@ -108,20 +111,20 @@ LIMIT 10;
 /*------------------------------*/
 /* 5. EXPLAIN ANALYZE OPTIMIZED */
 /*------------------------------*/
-                                                                  QUERY PLAN                                                                  
-----------------------------------------------------------------------------------------------------------------------------------------------
- Limit  (cost=78759.24..78759.26 rows=10 width=68) (actual time=856.453..856.456 rows=10 loops=1)
-   ->  Sort  (cost=78759.24..78857.93 rows=39476 width=68) (actual time=856.451..856.452 rows=10 loops=1)
+                                                                   QUERY PLAN                                                                   
+------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=84031.70..84031.72 rows=10 width=68) (actual time=787.316..787.319 rows=10 loops=1)
+   ->  Sort  (cost=84031.70..84130.06 rows=39345 width=68) (actual time=787.314..787.316 rows=10 loops=1)
          Sort Key: (count(*)) DESC, device, program_ver
          Sort Method: top-N heapsort  Memory: 26kB
-         ->  GroupAggregate  (cost=75875.29..77906.17 rows=39476 width=68) (actual time=855.601..856.409 rows=141 loops=1)
+         ->  GroupAggregate  (cost=81236.30..83181.47 rows=39345 width=68) (actual time=786.581..787.276 rows=141 loops=1)
                Group Key: device, program_ver
-               ->  Sort  (cost=75875.29..76284.32 rows=163612 width=60) (actual time=855.589..855.756 rows=3504 loops=1)
+               ->  Sort  (cost=81236.30..81624.23 rows=155172 width=60) (actual time=786.571..786.716 rows=3504 loops=1)
                      Sort Key: device, program_ver
                      Sort Method: quicksort  Memory: 278kB
-                     ->  Seq Scan on timeinfo info  (cost=0.00..55553.56 rows=163612 width=60) (actual time=0.234..853.401 rows=3504 loops=1)
+                     ->  Seq Scan on deviceinfo info  (cost=0.00..62023.25 rows=155172 width=60) (actual time=0.213..784.635 rows=3504 loops=1)
                            Filter: ((app_run_time > next_app_run_time) AND (pda_run_time < next_pda_run_time))
                            Rows Removed by Filter: 3816746
- Planning Time: 0.170 ms
- Execution Time: 856.505 ms
+ Planning Time: 0.120 ms
+ Execution Time: 787.362 ms
 (14 rows)

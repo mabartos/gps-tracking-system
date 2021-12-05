@@ -14,38 +14,28 @@ ORDER BY dev.name ASC;
 /*-----------------------------*/
 /* 2. EXPLAIN ANALYZE ORIGINAL */
 /*-----------------------------*/
-                                                                                QUERY PLAN                                                                                
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Finalize GroupAggregate  (cost=91896.67..91932.07 rows=137 width=74) (actual time=1260.088..1287.784 rows=136 loops=1)
-   Group Key: dev.name
-   ->  Gather Merge  (cost=91896.67..91928.64 rows=274 width=74) (actual time=1260.077..1287.637 rows=395 loops=1)
-         Workers Planned: 2
-         Workers Launched: 2
-         ->  Sort  (cost=90896.65..90896.99 rows=137 width=74) (actual time=1256.254..1256.265 rows=132 loops=3)
-               Sort Key: dev.name
-               Sort Method: quicksort  Memory: 33kB
-               Worker 0:  Sort Method: quicksort  Memory: 33kB
-               Worker 1:  Sort Method: quicksort  Memory: 33kB
-               ->  Partial HashAggregate  (cost=90890.42..90891.79 rows=137 width=74) (actual time=1256.019..1256.057 rows=132 loops=3)
-                     Group Key: dev.name
-                     Batches: 1  Memory Usage: 64kB
-                     Worker 0:  Batches: 1  Memory Usage: 64kB
-                     Worker 1:  Batches: 1  Memory Usage: 64kB
-                     ->  Hash Join  (cost=70.00..78952.32 rows=1591746 width=38) (actual time=0.462..775.452 rows=1273417 loops=3)
-                           Hash Cond: (base.app_key = app.app_key)
-                           ->  Hash Join  (cost=31.43..74721.47 rows=1591746 width=18) (actual time=0.406..501.908 rows=1273417 loops=3)
-                                 Hash Cond: (base.device_key = dev.device_key)
-                                 ->  Parallel Seq Scan on report_fact base  (cost=0.00..70487.46 rows=1591746 width=16) (actual time=0.020..187.429 rows=1273417 loops=3)
-                                 ->  Hash  (cost=22.30..22.30 rows=730 width=18) (actual time=0.373..0.374 rows=730 loops=3)
-                                       Buckets: 1024  Batches: 1  Memory Usage: 46kB
-                                       ->  Seq Scan on device_dimension dev  (cost=0.00..22.30 rows=730 width=18) (actual time=0.020..0.228 rows=730 loops=3)
-                           ->  Hash  (cost=22.70..22.70 rows=1270 width=36) (actual time=0.031..0.031 rows=17 loops=3)
-                                 Buckets: 2048  Batches: 1  Memory Usage: 17kB
-                                 ->  Seq Scan on app_dimension app  (cost=0.00..22.70 rows=1270 width=36) (actual time=0.021..0.024 rows=17 loops=3)
- Planning Time: 0.317 ms
- Execution Time: 1287.900 ms
-(28 rows)
-
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=141649.94..141650.29 rows=137 width=74) (actual time=3787.843..3787.852 rows=136 loops=1)
+   Sort Key: dev.name
+   Sort Method: quicksort  Memory: 34kB
+   ->  HashAggregate  (cost=141643.71..141645.08 rows=137 width=74) (actual time=3787.631..3787.672 rows=136 loops=1)
+         Group Key: dev.name
+         Batches: 1  Memory Usage: 64kB
+         ->  Hash Join  (cost=70.00..112991.39 rows=3820309 width=38) (actual time=0.321..2309.445 rows=3820250 loops=1)
+               Hash Cond: (base.app_key = app.app_key)
+               ->  Hash Join  (cost=31.43..102891.04 rows=3820309 width=18) (actual time=0.296..1475.374 rows=3820250 loops=1)
+                     Hash Cond: (base.device_key = dev.device_key)
+                     ->  Seq Scan on report_fact base  (cost=0.00..92773.09 rows=3820309 width=16) (actual time=0.007..467.279 rows=3820250 loops=1)
+                     ->  Hash  (cost=22.30..22.30 rows=730 width=18) (actual time=0.283..0.283 rows=730 loops=1)
+                           Buckets: 1024  Batches: 1  Memory Usage: 46kB
+                           ->  Seq Scan on device_dimension dev  (cost=0.00..22.30 rows=730 width=18) (actual time=0.004..0.148 rows=730 loops=1)
+               ->  Hash  (cost=22.70..22.70 rows=1270 width=36) (actual time=0.018..0.019 rows=17 loops=1)
+                     Buckets: 2048  Batches: 1  Memory Usage: 17kB
+                     ->  Seq Scan on app_dimension app  (cost=0.00..22.70 rows=1270 width=36) (actual time=0.009..0.012 rows=17 loops=1)
+ Planning Time: 0.278 ms
+ Execution Time: 3787.937 ms
+(19 rows)
 
 /*----------------------------------*/
 /* 3. COMMENT PROPOSED OPTIMIZATION */
@@ -57,8 +47,26 @@ ORDER BY dev.name ASC;
 /* 4. IMPLEMENTED OPTIMIZATION */
 /*-----------------------------*/
 
+SELECT info.device as "Device model",
+        MIN(info.program_ver) as "Oldest version",
+        MAX(info.program_ver) as "Newest version"        
+FROM xbartos5.DeviceInfo info 
+GROUP BY info.device
+ORDER BY info.device ASC;
 
 
 /*------------------------------*/
 /* 5. EXPLAIN ANALYZE OPTIMIZED */
 /*------------------------------*/
+                                                               QUERY PLAN                                                               
+----------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=107933.96..107934.28 rows=127 width=74) (actual time=1816.170..1816.177 rows=136 loops=1)
+   Sort Key: device
+   Sort Method: quicksort  Memory: 34kB
+   ->  HashAggregate  (cost=107928.26..107929.53 rows=127 width=74) (actual time=1815.943..1815.988 rows=136 loops=1)
+         Group Key: device
+         Batches: 1  Memory Usage: 64kB
+         ->  Seq Scan on deviceinfo info  (cost=0.00..79276.86 rows=3820186 width=14) (actual time=0.015..256.983 rows=3820250 loops=1)
+ Planning Time: 0.128 ms
+ Execution Time: 1816.259 ms
+(9 rows)

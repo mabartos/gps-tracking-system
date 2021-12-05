@@ -66,56 +66,40 @@ ORDER BY COUNT(*) DESC, r.name ASC, r.program_ver ASC, r.pda_imei ASC;
 /*----------------------------------*/
 /* 3. COMMENT PROPOSED OPTIMIZATION */
 /*----------------------------------*/
-
-
+Materialized view was created in optimized query 4, which is used also in the following query 5.
+Execution time was decreased from 9072ms to 2088ms.
 
 /*-----------------------------*/
 /* 4. IMPLEMENTED OPTIMIZATION */
 /*-----------------------------*/
 
-CREATE MATERIALIZED VIEW DeviceInfo(pda_imei, device, program_ver, app_run_time, next_app_run_time) AS
-SELECT
-        dev.pda_imei,
-        dev.name,
-        app.program_ver,
-        base.app_run_time,
-        LEAD(base.app_run_time, 1) OVER (
-            PARTITION BY base.device_key
-            ORDER BY base.device_key
-        ) as next_app_run_time
-    FROM xbartos5.report_fact base
-    INNER JOIN xbartos5.device_dimension dev ON base.device_key = dev.device_key
-    INNER JOIN xbartos5.app_dimension app ON base.app_key = app.app_key;
-
-
 SELECT  info.pda_imei as "Device PDA_IMEI",
         info.device as "Device model",
         info.program_ver as "App version",
         COUNT(*) as "Count of connectivity problems"
-FROM DeviceInfo info
+FROM xbartos5.DeviceInfo info
 WHERE info.next_app_run_time >= info.app_run_time 
 AND (info.next_app_run_time - info.app_run_time) <= 0.08334   -- 5 minutes       
 GROUP BY GROUPING SETS ((info.pda_imei, info.device, info.program_ver), (info.device, info.program_ver))
 ORDER BY COUNT(*) DESC, info.device ASC, info.program_ver ASC, info.pda_imei ASC;
-
 
 /*------------------------------*/
 /* 5. EXPLAIN ANALYZE OPTIMIZED */
 /*------------------------------*/
                                                                   QUERY PLAN                                                                  
 ----------------------------------------------------------------------------------------------------------------------------------------------
- Sort  (cost=192191.08..192857.05 rows=266390 width=38) (actual time=2082.382..2082.419 rows=830 loops=1)
+ Sort  (cost=112170.42..112510.40 rows=135994 width=126) (actual time=2085.586..2085.625 rows=830 loops=1)
    Sort Key: (count(*)) DESC, device, program_ver, pda_imei
    Sort Method: quicksort  Memory: 90kB
-   ->  GroupAggregate  (cost=152928.45..160898.10 rows=266390 width=38) (actual time=1776.030..2081.097 rows=830 loops=1)
+   ->  GroupAggregate  (cost=88441.17..91740.76 rows=135994 width=126) (actual time=1780.002..2084.317 rows=830 loops=1)
          Group Key: device, program_ver, pda_imei
          Group Key: device, program_ver
-         ->  Sort  (cost=152928.45..153989.60 rows=424460 width=30) (actual time=1775.751..1984.471 rows=394409 loops=1)
+         ->  Sort  (cost=88441.17..88829.10 rows=155172 width=118) (actual time=1779.722..1987.624 rows=394409 loops=1)
                Sort Key: device, program_ver, pda_imei
                Sort Method: external merge  Disk: 15624kB
-               ->  Seq Scan on deviceinfo info  (cost=0.00..103094.49 rows=424460 width=30) (actual time=2.620..1499.002 rows=394409 loops=1)
+               ->  Seq Scan on deviceinfo info  (cost=0.00..65514.62 rows=155172 width=118) (actual time=4.740..1501.240 rows=394409 loops=1)
                      Filter: ((next_app_run_time >= app_run_time) AND ((next_app_run_time - app_run_time) <= 0.08334))
                      Rows Removed by Filter: 3425841
- Planning Time: 0.082 ms
- Execution Time: 2085.395 ms
+ Planning Time: 0.164 ms
+ Execution Time: 2088.726 ms
 (14 rows)

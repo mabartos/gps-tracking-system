@@ -52,16 +52,6 @@ ORDER BY gsm.gsmnet_id, c.month, c.week_day DESC;
 /* 4. IMPLEMENTED OPTIMIZATION */
 /*-----------------------------*/
 
-SELECT gsm.gsmnet_id,
-        gsm.prov_country as "Country",
-        c.month as "Month",
-        c.week_day as "Day of week",
-        count(*) as "Connections count"          
-FROM xbartos5.report_fact base 
-INNER JOIN xbartos5.date_dimension c ON c.date_key = base.date_conn_key 
-INNER JOIN xbartos5.gsm_network_dimension gsm ON base.gsm_key = gsm.gsm_key
-GROUP BY CUBE(c.month, c.week_day), gsm.gsmnet_id, gsm.prov_country
-ORDER BY gsm.gsmnet_id, c.month, c.week_day DESC;
 
 
 
