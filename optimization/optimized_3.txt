@@ -41,11 +41,40 @@ ORDER BY dev.name ASC;
 /* 3. COMMENT PROPOSED OPTIMIZATION */
 /*----------------------------------*/
 
+I've created a materialized view with Device information. 
+The view is also used in Query 4 and Query 5.
+The materialized view inner join particular tables and also add attribute about next APP and PDA run time.
+As the materialized views are not refreshed automatically, it's neccessary to ensure that there's some approach for manual refresh of the items in the view.
+In order to amortize the costs to create the materialized view, IMO, there should be at least one query execution before refreshing the whole view again.
+In this case it'd be kinda contraproductive to use the materialized view, because the items wouldn't be precomputed so far.
 
+The execution time was decreased from 3787ms to 1816ms.
 
 /*-----------------------------*/
 /* 4. IMPLEMENTED OPTIMIZATION */
 /*-----------------------------*/
+
+CREATE MATERIALIZED VIEW xbartos5.DeviceInfo(pda_imei, device, program_ver, app_run_time, next_app_run_time, pda_run_time, next_pda_run_time) AS
+SELECT
+        dev.pda_imei,
+        dev.name,
+        app.program_ver,
+        base.app_run_time,
+        LEAD(base.app_run_time, 1) OVER (
+            PARTITION BY base.device_key
+            ORDER BY base.device_key
+        ) as next_app_run_time,
+        base.pda_run_time,
+        LEAD(base.pda_run_time, 1) OVER (
+            PARTITION BY base.device_key
+            ORDER BY base.device_key
+        ) as next_pda_run_time
+    FROM xbartos5.report_fact base
+    INNER JOIN xbartos5.device_dimension dev ON base.device_key = dev.device_key
+    INNER JOIN xbartos5.app_dimension app ON base.app_key = app.app_key;
+
+CREATE INDEX DeviceInfo_idx ON xbartos5.DeviceInfo(device);
+CREATE INDEX DeviceInfo_prog_ver_idx ON xbartos5.DeviceInfo(program_ver);
 
 SELECT info.device as "Device model",
         MIN(info.program_ver) as "Oldest version",

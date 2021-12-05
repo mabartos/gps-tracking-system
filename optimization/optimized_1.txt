@@ -52,7 +52,6 @@ where is possible to easily split records to particular tables by specific year 
 In this case, admin must each month create new table for the records and edit provided function. 
 With this optimization, the execution time was decreased from 3455ms to 1764ms.
 
-
 /*-----------------------------*/
 /* 4. IMPLEMENTED OPTIMIZATION */
 /*-----------------------------*/

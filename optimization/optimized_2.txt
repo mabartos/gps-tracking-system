@@ -46,15 +46,43 @@ ORDER BY gsm.gsmnet_id, c.month, c.week_day DESC;
 /* 3. COMMENT PROPOSED OPTIMIZATION */
 /*----------------------------------*/
 
-
+Execution time was decreased from 8766ms to 3.6ms.
+However, I didn't find any other usage for this materialized view.
 
 /*-----------------------------*/
 /* 4. IMPLEMENTED OPTIMIZATION */
 /*-----------------------------*/
 
+CREATE MATERIALIZED VIEW xbartos5.GsmNetwork(gsmnet_id, prov_country, month, week_day) AS
+SELECT gsm.gsmnet_id,
+        gsm.prov_country as "Country",
+        c.month as "Month",
+        c.week_day as "Day of week"
+FROM xbartos5.report_fact base 
+INNER JOIN xbartos5.date_dimension c ON c.date_key = base.date_conn_key 
+INNER JOIN xbartos5.gsm_network_dimension gsm ON base.gsm_key = gsm.gsm_key
+GROUP BY CUBE(c.month, c.week_day), gsm.gsmnet_id, gsm.prov_country
+ORDER BY gsm.gsmnet_id, c.month, c.week_day DESC;
 
+
+SELECT gsmnet_id,prov_country,month,week_day,count(*) 
+FROM xbartos5.GsmNetwork info
+GROUP BY CUBE(info.month, info.week_day), info.gsmnet_id, info.prov_country;
 
 
 /*------------------------------*/
 /* 5. EXPLAIN ANALYZE OPTIMIZED */
 /*------------------------------*/
+                                                     QUERY PLAN                                                       
+-----------------------------------------------------------------------------------------------------------------------
+ HashAggregate  (cost=23.73..48.50 rows=800 width=112) (actual time=2.957..3.473 rows=2222 loops=1)
+   Hash Key: gsmnet_id, prov_country, month, week_day
+   Hash Key: gsmnet_id, prov_country, month
+   Hash Key: gsmnet_id, prov_country
+   Hash Key: week_day, gsmnet_id, prov_country
+   Batches: 1  Memory Usage: 445kB
+   ->  Seq Scan on gsmnetwork info  (cost=0.00..16.10 rows=610 width=104) (actual time=0.028..0.179 rows=1408 loops=1)
+ Planning Time: 0.086 ms
+ Execution Time: 3.631 ms
+(9 rows)
+
